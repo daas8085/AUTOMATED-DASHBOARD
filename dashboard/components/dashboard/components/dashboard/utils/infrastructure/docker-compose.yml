@@ -1,0 +1,171 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: dashboard-postgres
+    environment:
+      POSTGRES_DB: dashboard_db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d dashboard_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - dashboard-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: dashboard-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - dashboard-network
+
+  # Dashboard Application
+  dashboard:
+    build:
+      context: ..
+      dockerfile: infrastructure/Dockerfile
+    container_name: dashboard-app
+    ports:
+      - "8501:8501"
+    environment:
+      - DATABASE_URL=postgresql://admin:admin123@postgres:5432/dashboard_db
+      - REDIS_URL=redis://redis:6379/0
+      - LOG_LEVEL=INFO
+    volumes:
+      - ../dashboard:/app/dashboard
+      - ../data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - dashboard-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Airflow Scheduler
+  airflow-scheduler:
+    build:
+      context: ..
+      dockerfile: infrastructure/Dockerfile.airflow
+    container_name: dashboard-airflow-scheduler
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql://admin:admin123@postgres:5432/dashboard_db
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__WEBSERVER__SECRET_KEY=your-secret-key-here
+    volumes:
+      - ../pipelines:/opt/airflow/dags
+      - ./airflow_logs:/opt/airflow/logs
+      - ./airflow_config:/opt/airflow/config
+    depends_on:
+      - postgres
+    command: scheduler
+    restart: unless-stopped
+    networks:
+      - dashboard-network
+
+  # Airflow Webserver
+  airflow-webserver:
+    build:
+      context: ..
+      dockerfile: infrastructure/Dockerfile.airflow
+    container_name: dashboard-airflow-webserver
+    ports:
+      - "8080:8080"
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql://admin:admin123@postgres:5432/dashboard_db
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__WEBSERVER__SECRET_KEY=your-secret-key-here
+    volumes:
+      - ../pipelines:/opt/airflow/dags
+      - ./airflow_logs:/opt/airflow/logs
+      - ./airflow_config:/opt/airflow/config
+    depends_on:
+      - postgres
+      - airflow-scheduler
+    command: webserver
+    restart: unless-stopped
+    networks:
+      - dashboard-network
+
+  # Prometheus Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: dashboard-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - dashboard-network
+
+  # Grafana Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    container_name: dashboard-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - dashboard-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  dashboard-network:
+    driver: bridge

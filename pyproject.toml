@@ -1,0 +1,77 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "automated-dashboard"
+version = "1.0.0"
+description = "Fully automated dashboard with modern technology stack"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+keywords = ["dashboard", "analytics", "data-viz", "automation"]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/automated-dashboard"
+Repository = "https://github.com/yourusername/automated-dashboard"
+Issues = "https://github.com/yourusername/automated-dashboard/issues"
+
+[project.optional-dependencies]
+dev = ["pytest", "black", "flake8", "mypy"]
+prod = ["gunicorn", "uvicorn[standard]"]
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=./ --cov-report=html"
+
+[tool.coverage.run]
+source = ["dashboard", "pipelines"]
+omit = ["*/tests/*", "*/migrations/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]

@@ -1,0 +1,80 @@
+
+ `.gitignore`**
+```gitignore
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+*.manifest
+*.spec
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Database
+*.db
+*.sqlite3
+
+# Docker
+docker-compose.override.yml
+
+# Logs
+*.log
+logs/
+
+# Data files
+*.csv
+*.parquet
+*.feather
+data/local/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+secrets.yml
+credentials.json
+service-account.json
+
+# Jupyter
+.ipynb_checkpoints
+
+# Airflow
+airflow.cfg
+airflow.db
+logs/
+dags/__pycache__/
+
+# Streamlit
+.streamlit/
